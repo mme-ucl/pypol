@@ -2938,7 +2938,7 @@ project.save()                                                # Save project to 
             os.chdir(crystal._path)
 
             os.system(f'{self.gromacs} trjconv -f {self._name}.xtc -o pypol_{self._name}_avg.gro -s {self._name}.tpr '
-                      f'-pbc nojump -ur tric -center <<< "2 2" &> /dev/null')
+                      f'-pbc nojump -ur tric -center -b {traj_start} <<< "2 2" &> /dev/null')
             cmat = []
             box = []
             sline = []
