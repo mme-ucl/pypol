@@ -1937,7 +1937,7 @@ project.save()                                                # Save project to 
 
             file_script = open(self._path_data + "/run_" + self._name + ".sh", "w")
             file_script.write('#!/bin/bash\n\n'
-                                  'crystal_paths="\n')
+                              'crystal_paths="\n')
             print("Generating gromacs inputs for '{}' simulations:".format(self._name))
             bar = progressbar.ProgressBar(maxval=len(list_crystals)).start()
 
@@ -1960,7 +1960,6 @@ project.save()                                                # Save project to 
                 bar.update(a)
                 a += 1
             bar.finish()
-
 
     def get_results(self, crystals="all"):
         """
@@ -2825,7 +2824,7 @@ project.save()                                                # Save project to 
                 a += 1
             bar.finish()
 
-    def get_results(self, crystals="all", timeinterval=200):
+    def get_results(self, crystals="all", timeinterval=100):
         """
         Verify if the simulation ended correctly and upload new crystal properties.
         :param crystals: You can select a specific subset of crystals by listing crystal names in the crystal parameter.
@@ -2918,6 +2917,66 @@ project.save()                                                # Save project to 
                         rank += 1
             self._completed = "complete"
 
+    def gen_avg_box(self, crystals="all", timeinterval=100):
+        """
+        TODO Not suitable for more than one molecule!
+        :param crystals:
+        :param timeinterval:
+        :return:
+        """
+        list_crystals = get_list_crystals(self._crystals, crystals, _include_melted=True)
+        if not self._mdp:
+            self._mdp = self._import_mdp(self._path_mdp)
+        traj_start = int(float(self._mdp["dt"]) * float(self._mdp["nsteps"])) - timeinterval
+        nf = int(timeinterval / float(self._mdp["dt"]))
+        na = self._molecules[0].natoms
+
+        print("Generating average box over {} of the '{}' simulations:".format(nf, self._name))
+        bar = progressbar.ProgressBar(maxval=len(list_crystals)).start()
+        nbar = 1
+        for crystal in list_crystals:
+            os.chdir(crystal._path)
+
+            os.system(f'{self.gromacs} trjconv -f {self._name}.xtc -o pypol_{self._name}_avg.gro -s {self._name}.tpr '
+                      f'-pbc nojump -ur tric -center <<< "2 2" &> /dev/null')
+            cmat = []
+            box = []
+            sline = []
+            nf = 0
+            file_gro = open(crystal._path + f"pypol_{self._name}_avg.gro")
+            for line in file_gro:
+                if "t=" in line:
+                    nf += 1
+                    next(file_gro)
+                    for i in range(crystal._Z * na):
+                        line = next(file_gro)
+                        if nf == 1:
+                            sline.append(line[:20])
+                        cmat.append(
+                            [[float(line[20:28].strip()), float(line[28:36].strip()), float(line[36:44].strip())]])
+                    line = next(file_gro).split()
+                    box.append([float(_) for _ in line])
+                    if len(box[-1]) == 3:
+                        box[-1] += [0., 0., 0., 0., 0., 0.]
+            cmat = np.array(cmat)
+            file_gro.close()
+
+            cavg = np.average(np.array(cmat).reshape((nf, crystal._Z * na, 3)), axis=0)
+            box = np.average(np.array(box), axis=0)
+
+            file_out = open(crystal._path + f"{self._name}_avg.gro", "w")
+            file_out.write(f"PyPol: Atom Average position over {nf} frames\n{int(crystal._Z * na)}\n")
+            for i in range(len(sline)):
+                file_out.write(f"{sline[i]}{cavg[i, 0]:8.3f}{cavg[i, 1]:8.3f}{cavg[i, 2]:8.3f}\n")
+            file_out.write("{0[0]:>10.5f}{0[1]:>10.5f}{0[2]:>10.5f}"
+                           "{0[3]:>10.5f}{0[4]:>10.5f}{0[5]:>10.5f}"
+                           "{0[6]:>10.5f}{0[7]:>10.5f}{0[8]:>10.5f}\n".format(box))
+            file_out.close()
+
+            os.remove(crystal._path + f"pypol_{self._name}_avg.gro")
+            bar.update(nbar)
+            nbar += 1
+        bar.finish()
 
 class Metadynamics(MolecularDynamics):
     _type = "WTMD"
@@ -2951,7 +3010,7 @@ class Metadynamics(MolecularDynamics):
         self._height = height
         self._temp = temp
         self._stride = stride
-        #self._replicas = replicas
+        # self._replicas = replicas
 
         # Committor: EnergyCutOff
         self._energy_cutoff = 2.5
@@ -3397,7 +3456,8 @@ COMMITTOR ...
                           "-s {0._name}.tpr <<< 0 &> /dev/null"
                           "".format(self, file_ext, str(i), times[i][0], times[i][1]))
                 for cv in clustering_method._cvp:
-                    if issubclass(type(cv), _OwnDistributions) or issubclass(type(cv), _GG) or issubclass(type(cv), _Property):
+                    if issubclass(type(cv), _OwnDistributions) or issubclass(type(cv), _GG) or issubclass(type(cv),
+                                                                                                          _Property):
                         continue
                     cv.check_attributes()
                     wd = crystal.path + f"/{self._name}_analysis/{str(i)}/"
