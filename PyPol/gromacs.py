@@ -2928,10 +2928,9 @@ project.save()                                                # Save project to 
         if not self._mdp:
             self._mdp = self._import_mdp(self._path_mdp)
         traj_start = int(float(self._mdp["dt"]) * float(self._mdp["nsteps"])) - timeinterval
-        nf = int(timeinterval / float(self._mdp["dt"]))
         na = self._molecules[0].natoms
 
-        print("Generating average box over {} of the '{}' simulations:".format(nf, self._name))
+        print("Generating average box of simulations '{}':".format(self._name))
         bar = progressbar.ProgressBar(maxval=len(list_crystals)).start()
         nbar = 1
         for crystal in list_crystals:
