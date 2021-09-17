@@ -1793,15 +1793,15 @@ class _GroSim(_GroDef):
                         label=data.loc[i, "Label"])
 
         plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
-        plt.xlabel(r"$\rho$ / Kg m$^{-3}$")
+        plt.xlabel(r"$\rho$ / kg m$^{-3}$")
         plt.legend(loc=(1.03, 0), scatterpoints=1)
         hl = [plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=7, ls="")[0],
               plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=15, ls="")[0]]
         sl = plt.legend(handles=hl, labels=[data.loc[:, "ClusterSize"].min(), data.loc[:, "ClusterSize"].max()],
-                        title="Size", loc=(1.03, 0.0), scatterpoints=1)
+                        title="Size", loc=2, scatterpoints=1)
         plt.gca().add_artist(sl)
 
-        plt.legend(loc=(1.03, 1.0), scatterpoints=1)
+        plt.legend(scatterpoints=1, loc=3)
 
         plt.tight_layout()
         plt.savefig(path, dpi=300)
