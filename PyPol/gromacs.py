@@ -1782,21 +1782,21 @@ class _GroSim(_GroDef):
                     data.drop(index=crystal._name, inplace=True)
 
             from sklearn.preprocessing import minmax_scale
-            data.loc[:, "PointSize"] = minmax_scale(data.loc[:, "ClusterSize"], feature_range=(50, 200))
+            data.loc[:, "PointSize"] = minmax_scale(data.loc[:, "ClusterSize"], feature_range=(7, 15))
         else:
-            data.loc[:, "PointSize"] = np.full((len(list_crystals)), 50)
+            data.loc[:, "PointSize"] = np.full((len(list_crystals)), 7)
 
         data.sort_values(by="Label", inplace=True)
         for i in data.index:
-            plt.scatter(data.loc[i, "Density"], data.loc[i, "Energy"], s=data.loc[i, "PointSize"],
+            plt.scatter(data.loc[i, "Density"], data.loc[i, "Energy"], s=data.loc[i, "PointSize"]**2,
                         c=data.loc[i, "PointColor"], alpha=data.loc[i, "PointAlpha"], edgecolors=None,
                         label=data.loc[i, "Label"])
 
         plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
         plt.xlabel(r"$\rho$ / Kg m$^{-3}$")
         plt.legend(loc=(1.03, 0), scatterpoints=1)
-        hl = [plt.plot([], [], alpha=0.3, c="C7", marker="o", s=50)[0],
-              plt.plot([], [], alpha=0.3, c="C7", marker="o", s=200)[0]]
+        hl = [plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=7)[0],
+              plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=15)[0]]
         sl = plt.legend(handles=hl, labels=[data.loc[:, "ClusterSize"].min(), data.loc[:, "ClusterSize"].max()],
                         title="Size", loc=(1.03, 0.5), scatterpoints=1)
         plt.gca().add_artist(sl)
