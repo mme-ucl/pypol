@@ -1787,19 +1787,21 @@ class _GroSim(_GroDef):
             data.loc[:, "PointSize"] = np.full((len(list_crystals)), 50)
 
         data.sort_values(by="Label", inplace=True)
-        plt.scatter(data.loc[:, "Density"].values, data.loc[:, "Energy"].values, s=data.loc[:, "PointSize"].values,
-                    c=data.loc[:, "PointColor"].values, alpha=data.loc[:, "PointAlpha"].values, edgecolors=None,
-                    label=data.loc[:, "Label"].values)
+        for i in data.index:
+            plt.scatter(data.loc[i, "Density"], data.loc[i, "Energy"], s=data.loc[i, "PointSize"],
+                        c=data.loc[i, "PointColor"], alpha=data.loc[i, "PointAlpha"], edgecolors=None,
+                        label=data.loc[i, "Label"])
 
-        # plt.legend(scatterpoints=1)
         plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
         plt.xlabel(r"$\rho$ / Kg m$^{-3}$")
-        plt.legend(loc=(1.03, 0), scatterpoints=1, )
-        hl = [plt.plot([], [], alpha=0, c="C7", marker="o", ms=50)[0],
-              plt.plot([], [], alpha=0, c="C7", marker="o", ms=200)[0]]
+        plt.legend(loc=(1.03, 0), scatterpoints=1)
+        hl = [plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=50)[0],
+              plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=200)[0]]
         sl = plt.legend(handles=hl, labels=[data.loc[:, "ClusterSize"].min(), data.loc[:, "ClusterSize"].max()],
                         title="Size", loc=(1.03, 0.5))
-        plt.gca.add_artist(sl)
+        plt.gca().add_artist(sl)
+        plt.legend(loc=(1.03, 0), scatterpoints=1)
+        plt.tight_layout()
         plt.savefig(path, dpi=300)
         plt.close("all")
         if save_data:
