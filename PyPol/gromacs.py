@@ -1743,57 +1743,50 @@ class _GroSim(_GroDef):
             exit()
         list_crystals = get_list_crystals(self._crystals, crystals, catt)
 
-        s = {}
-        labels = {}
-        for crystal in list_crystals:
-            if crystal._name not in labels:
-                if crystal._name != crystal._label:
-                    print("Include label {} for crystal {}".format(crystal._label, crystal._name))
-                    labels[crystal._name] = crystal._label
-                else:
-                    labels[crystal._name] = False
+        data = pd.DataFrame(np.full((len(list_crystals), 5), pd.NA), index=[x.name for x in list_crystals],
+                            columns=["Density", "Energy", "Label", "ClusterSize", "PointSize", "PointColor"])
 
-            if cluster_centers:
-                if crystal._state == "complete":
-                    print("Error: Perform Cluster analysis before plotting energy landscape of cluster centers")
-                    exit()
-
-                if labels[crystal._name]:
-                    if crystal._state not in labels and crystal._state != crystal._name:
-                        print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
-                        labels[crystal._state] = crystal._label
-                        labels[crystal._name] = False
-                    elif not labels[crystal._state] and crystal._state != crystal._name:
-                        print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
-                        labels[crystal._state] = crystal._label
-                        labels[crystal._name] = False
-
-                if crystal._state not in s:
-                    s[crystal._state] = 1
-                else:
-                    s[crystal._state] += 1
-            else:
-                s[crystal._name] = 1
-
-        list_crystals = sorted(list_crystals, key=lambda x: x.label)
-
-        data = pd.DataFrame(np.full((len(s.keys()), 2), pd.NA), index=list(s.keys()), columns=["Density", "Energy"])
+        data.loc[:, "ClusterSize"] = np.full((len(list_crystals)), 0)
         c = 1
         for crystal in list_crystals:
-            if cluster_centers and crystal._name != crystal._state:
-                continue
-            data.at[crystal._name, "Density"] = crystal.density
             data.at[crystal._name, "Energy"] = crystal._energy - self._global_minima._energy
-            if labels[crystal._name]:
-                plt.scatter(crystal.density, crystal._energy - self._global_minima._energy,
-                            s=s[crystal._name] * 50, c="C" + str(c), alpha=0.8, edgecolors=None,
-                            label=labels[crystal._name])
+            data.at[crystal._name, "Density"] = crystal.density
+            if crystal._state == "complete":
+                if cluster_centers:
+                    print("Error: Perform Cluster analysis before plotting energy landscape of cluster centers")
+                    exit()
+                data.at[crystal._name, "ClusterSize"] = 1
+            else:
+                data.at[crystal._state, "ClusterSize"] += 1
+
+            if crystal._name != crystal._label:
+                print("Include label {} for crystal {}".format(crystal._label, crystal._name))
+                data.at[crystal._name, "Label"] = crystal._label
+                data.at[crystal._name, "PointColor"] = "C" + str(c)
                 c += 1
             else:
-                plt.scatter(crystal.density, crystal._energy - self._global_minima._energy,
-                            s=s[crystal._name] * 50, c="C0", alpha=0.2, edgecolors=None, label='_no_legend_')
+                data.at[crystal._name, "Label"] = '_no_legend_'
+                data.at[crystal._name, "PointColor"] = "C0"
 
-        plt.legend(scatterpoints=1)
+        if cluster_centers:
+            for crystal in list_crystals:
+                if crystal._name != crystal._state:
+                    if crystal._name != crystal._label:
+                        data.at[crystal._state, "Label"] = data.at[crystal._name, "Label"]
+                        data.at[crystal._state, "PointColor"] = data.at[crystal._name, "PointColor"]
+                        print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
+                    data.drop(index=crystal._name, inplace=True)
+
+            from sklearn.preprocessing import minmax_scale
+            data.loc[:, "PointSize"] = minmax_scale(data.loc[:, "ClusterSize"], feature_range=(50, 200))
+        else:
+            data.loc[:, "PointSize"] = np.full((len(list_crystals)), 50)
+
+        data.sort_values(by="Label", inplace=True)
+        plt.scatter(data.loc[:, "Density"].values, data.loc[:, "Energy"].values, s=data.loc[:, "PointSize"].values,
+                    c=data.loc[:, "PointColor"].values, alpha=0.2, edgecolors=None, label=data.loc[:, "Label"].values)
+
+        # plt.legend(scatterpoints=1)
         plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
         plt.xlabel(r"$\rho$ / Kg m$^{-3}$")
         plt.savefig(path, dpi=300)
@@ -1802,6 +1795,64 @@ class _GroSim(_GroDef):
             data.to_csv(path + "_data")
         print("Plot '{}' saved".format(path))
         print("=" * 50)
+
+        # for crystal in list_crystals:
+        #     if crystal._name not in data.loc[:, "Label"]:
+        #         if crystal._name != crystal._label:
+        #             print("Include label {} for crystal {}".format(crystal._label, crystal._name))
+        #             data.at[crystal._name, "Label"] = crystal._label
+        #         else:
+        #             data.at[crystal._name, "Label"] = '_no_legend_'
+        #
+        #     if cluster_centers:
+        #         if crystal._state == "complete":
+        #             print("Error: Perform Cluster analysis before plotting energy landscape of cluster centers")
+        #             exit()
+        #
+        #         if data.at[crystal._name, "Label"] != '_no_legend_':
+        #             if crystal._state not in data.loc[:, "Label"] and crystal._state != crystal._name:
+        #                 print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
+        #                 data.at[crystal._state, "Label"] = crystal._label
+        #                 data.at[crystal._name, "Label"] = False
+        #             elif not labels[crystal._state] and crystal._state != crystal._name:
+        #                 print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
+        #                 labels[crystal._state] = crystal._label
+        #                 labels[crystal._name] = False
+        #
+        #         if crystal._state not in s:
+        #             s[crystal._state] = 1
+        #         else:
+        #             s[crystal._state] += 1
+        #     else:
+        #         s[crystal._name] = 1
+
+        # list_crystals = sorted(list_crystals, key=lambda x: x.label)
+        #
+        # data = pd.DataFrame(np.full((len(s.keys()), 2), pd.NA), index=list(s.keys()), columns=["Density", "Energy"])
+        # c = 1
+        # for crystal in list_crystals:
+        #     if cluster_centers and crystal._name != crystal._state:
+        #         continue
+        #     data.at[crystal._name, "Density"] = crystal.density
+        #     data.at[crystal._name, "Energy"] = crystal._energy - self._global_minima._energy
+        #     if labels[crystal._name]:
+        #         plt.scatter(crystal.density, crystal._energy - self._global_minima._energy,
+        #                     s=s[crystal._name] * 50, c="C" + str(c), alpha=0.8, edgecolors=None,
+        #                     label=labels[crystal._name])
+        #         c += 1
+        #     else:
+        #         plt.scatter(crystal.density, crystal._energy - self._global_minima._energy,
+        #                     s=s[crystal._name] * 50, c="C0", alpha=0.2, edgecolors=None, label='_no_legend_')
+
+        # plt.legend(scatterpoints=1)
+        # plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
+        # plt.xlabel(r"$\rho$ / Kg m$^{-3}$")
+        # plt.savefig(path, dpi=300)
+        # plt.close("all")
+        # if save_data:
+        #     data.to_csv(path + "_data")
+        # print("Plot '{}' saved".format(path))
+        # print("=" * 50)
 
 
 class EnergyMinimization(_GroSim):

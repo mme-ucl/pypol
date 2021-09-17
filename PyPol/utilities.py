@@ -152,7 +152,7 @@ def get_list_crystals(scrystals, crystals, attributes=None, _include_melted=Fals
             exit()
     if attributes:
         list_crystals = check_attributes(list_crystals, attributes)
-    return list_crystals
+    return sorted(list_crystals, key=lambda x: x.label)
 
 
 # Cell parameters - Box matrix interconversion
