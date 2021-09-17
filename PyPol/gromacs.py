@@ -1743,14 +1743,15 @@ class _GroSim(_GroDef):
             exit()
         list_crystals = get_list_crystals(self._crystals, crystals, catt)
 
-        data = pd.DataFrame(np.full((len(list_crystals), 5), pd.NA), index=[x.name for x in list_crystals],
-                            columns=["Density", "Energy", "Label", "ClusterSize", "PointSize", "PointColor"])
+        data = pd.DataFrame(np.full((len(list_crystals), 7), pd.NA), index=[x.name for x in list_crystals],
+                            columns=["Density", "Energy", "Label", "ClusterSize",
+                                     "PointSize", "PointColor", "PointAlpha"])
 
         data.loc[:, "ClusterSize"] = np.full((len(list_crystals)), 0)
         c = 1
         for crystal in list_crystals:
-            data.at[crystal._name, "Energy"] = crystal._energy - self._global_minima._energy
-            data.at[crystal._name, "Density"] = crystal.density
+            data.at[crystal._name, "Energy"] = round(crystal._energy - self._global_minima._energy, 5)
+            data.at[crystal._name, "Density"] = round(crystal.density, 5)
             if crystal._state == "complete":
                 if cluster_centers:
                     print("Error: Perform Cluster analysis before plotting energy landscape of cluster centers")
@@ -1763,10 +1764,13 @@ class _GroSim(_GroDef):
                 print("Include label {} for crystal {}".format(crystal._label, crystal._name))
                 data.at[crystal._name, "Label"] = crystal._label
                 data.at[crystal._name, "PointColor"] = "C" + str(c)
+                data.at[crystal._name, "PointAlpha"] = 1.00
+
                 c += 1
             else:
                 data.at[crystal._name, "Label"] = '_no_legend_'
                 data.at[crystal._name, "PointColor"] = "C0"
+                data.at[crystal._name, "PointAlpha"] = 0.20
 
         if cluster_centers:
             for crystal in list_crystals:
@@ -1774,7 +1778,7 @@ class _GroSim(_GroDef):
                     if crystal._name != crystal._label:
                         data.at[crystal._state, "Label"] = data.at[crystal._name, "Label"]
                         data.at[crystal._state, "PointColor"] = data.at[crystal._name, "PointColor"]
-                        print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
+                        data.at[crystal._state, "PointAlpha"] = data.at[crystal._name, "PointAlpha"]
                     data.drop(index=crystal._name, inplace=True)
 
             from sklearn.preprocessing import minmax_scale
@@ -1784,11 +1788,18 @@ class _GroSim(_GroDef):
 
         data.sort_values(by="Label", inplace=True)
         plt.scatter(data.loc[:, "Density"].values, data.loc[:, "Energy"].values, s=data.loc[:, "PointSize"].values,
-                    c=data.loc[:, "PointColor"].values, alpha=0.2, edgecolors=None, label=data.loc[:, "Label"].values)
+                    c=data.loc[:, "PointColor"].values, alpha=data.loc[:, "PointAlpha"].values, edgecolors=None,
+                    label=data.loc[:, "Label"].values)
 
         # plt.legend(scatterpoints=1)
         plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
         plt.xlabel(r"$\rho$ / Kg m$^{-3}$")
+        plt.legend(loc=(1.03, 0), scatterpoints=1, )
+        hl = [plt.plot([], [], alpha=0, c="C7", marker="o", ms=50)[0],
+              plt.plot([], [], alpha=0, c="C7", marker="o", ms=200)[0]]
+        sl = plt.legend(handles=hl, labels=[data.loc[:, "ClusterSize"].min(), data.loc[:, "ClusterSize"].max()],
+                        title="Size", loc=(1.03, 0.5))
+        plt.gca.add_artist(sl)
         plt.savefig(path, dpi=300)
         plt.close("all")
         if save_data:
