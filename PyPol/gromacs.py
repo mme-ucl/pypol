@@ -1794,12 +1794,12 @@ class _GroSim(_GroDef):
 
         plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
         plt.xlabel(r"$\rho$ / kg m$^{-3}$")
-        plt.legend(loc=(1.03, 0), scatterpoints=1)
-        hl = [plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=7, ls="")[0],
-              plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=15, ls="")[0]]
-        sl = plt.legend(handles=hl, labels=[data.loc[:, "ClusterSize"].min(), data.loc[:, "ClusterSize"].max()],
-                        title="Size", loc=2, scatterpoints=1)
-        plt.gca().add_artist(sl)
+        if cluster_centers:
+            hl = [plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=7, ls="")[0],
+                  plt.plot([], [], alpha=0.3, c="C7", marker="o", ms=15, ls="")[0]]
+            sl = plt.legend(handles=hl, labels=[data.loc[:, "ClusterSize"].min(), data.loc[:, "ClusterSize"].max()],
+                            title="Size", loc=2, scatterpoints=1)
+            plt.gca().add_artist(sl)
 
         plt.legend(scatterpoints=1, loc=3)
 
@@ -1810,64 +1810,6 @@ class _GroSim(_GroDef):
             data.to_csv(path + "_data")
         print("Plot '{}' saved".format(path))
         print("=" * 50)
-
-        # for crystal in list_crystals:
-        #     if crystal._name not in data.loc[:, "Label"]:
-        #         if crystal._name != crystal._label:
-        #             print("Include label {} for crystal {}".format(crystal._label, crystal._name))
-        #             data.at[crystal._name, "Label"] = crystal._label
-        #         else:
-        #             data.at[crystal._name, "Label"] = '_no_legend_'
-        #
-        #     if cluster_centers:
-        #         if crystal._state == "complete":
-        #             print("Error: Perform Cluster analysis before plotting energy landscape of cluster centers")
-        #             exit()
-        #
-        #         if data.at[crystal._name, "Label"] != '_no_legend_':
-        #             if crystal._state not in data.loc[:, "Label"] and crystal._state != crystal._name:
-        #                 print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
-        #                 data.at[crystal._state, "Label"] = crystal._label
-        #                 data.at[crystal._name, "Label"] = False
-        #             elif not labels[crystal._state] and crystal._state != crystal._name:
-        #                 print("Changing label of crystal {} to {}".format(crystal._state, crystal._label))
-        #                 labels[crystal._state] = crystal._label
-        #                 labels[crystal._name] = False
-        #
-        #         if crystal._state not in s:
-        #             s[crystal._state] = 1
-        #         else:
-        #             s[crystal._state] += 1
-        #     else:
-        #         s[crystal._name] = 1
-
-        # list_crystals = sorted(list_crystals, key=lambda x: x.label)
-        #
-        # data = pd.DataFrame(np.full((len(s.keys()), 2), pd.NA), index=list(s.keys()), columns=["Density", "Energy"])
-        # c = 1
-        # for crystal in list_crystals:
-        #     if cluster_centers and crystal._name != crystal._state:
-        #         continue
-        #     data.at[crystal._name, "Density"] = crystal.density
-        #     data.at[crystal._name, "Energy"] = crystal._energy - self._global_minima._energy
-        #     if labels[crystal._name]:
-        #         plt.scatter(crystal.density, crystal._energy - self._global_minima._energy,
-        #                     s=s[crystal._name] * 50, c="C" + str(c), alpha=0.8, edgecolors=None,
-        #                     label=labels[crystal._name])
-        #         c += 1
-        #     else:
-        #         plt.scatter(crystal.density, crystal._energy - self._global_minima._energy,
-        #                     s=s[crystal._name] * 50, c="C0", alpha=0.2, edgecolors=None, label='_no_legend_')
-
-        # plt.legend(scatterpoints=1)
-        # plt.ylabel(r"$\Delta$E / kJ mol$^{-1}$")
-        # plt.xlabel(r"$\rho$ / Kg m$^{-3}$")
-        # plt.savefig(path, dpi=300)
-        # plt.close("all")
-        # if save_data:
-        #     data.to_csv(path + "_data")
-        # print("Plot '{}' saved".format(path))
-        # print("=" * 50)
 
 
 class EnergyMinimization(_GroSim):
@@ -3520,6 +3462,34 @@ COMMITTOR ...
                 os.system("{0._gromacs} trjconv -f {0._name}.{1} -o {0._name}_analysis/{2}/{0._name}.xtc -b {3} -e {4} "
                           "-s {0._name}.tpr <<< 0 &> /dev/null"
                           "".format(self, file_ext, str(i), times[i][0], times[i][1]))
+                os.chdir(crystal._path)
+                if "pcoupl" in self._mdp and self._mdp["pcoupl"].lower() != "no":
+                    os.system('{0._gromacs} energy -f {0._name}.edr -b {2} -e {3} <<< "Box" &> '
+                              '{0._name}_analysis/{1}/PyPol_Temporary_Box.txt'
+                              ''.format(self, str(i), times[i][0], times[i][1]))
+                    file_coord = open(crystal._path + f'{self._name}_analysis/{str(i)}/PyPol_Temporary_Box.txt')
+                    new_box = np.zeros((3, 3))
+                    for line in file_coord:
+                        if line.startswith("Box-XX"):
+                            new_box[0, 0] = float(line.split()[1])
+                        elif line.startswith("Box-YY"):
+                            new_box[1, 1] = float(line.split()[1])
+                        elif line.startswith("Box-ZZ"):
+                            new_box[2, 2] = float(line.split()[1])
+                        elif line.startswith("Box-YX"):
+                            new_box[0, 1] = float(line.split()[1])
+                        elif line.startswith("Box-ZX"):
+                            new_box[0, 2] = float(line.split()[1])
+                        elif line.startswith("Box-ZY"):
+                            new_box[1, 2] = float(line.split()[1])
+                    file_coord.close()
+                    os.remove(crystal._path + 'PyPol_Temporary_Box.txt')
+                    # noinspection PyTypeChecker
+                    np.savetxt(crystal._path + f'{self._name}_analysis/{str(i)}/Box.txt', new_box)
+                else:
+
+                    np.savetxt(crystal._path + f'{self._name}_analysis/{str(i)}/Box.txt', crystal._box)
+
                 for cv in clustering_method._cvp:
                     if issubclass(type(cv), _OwnDistributions) or issubclass(type(cv), _GG) or issubclass(type(cv),
                                                                                                           _Property):
@@ -3550,7 +3520,7 @@ COMMITTOR ...
 
     def get_analysis_results(self, clustering_method=None, crystals="all", catt=None, plot=True):
         import networkx as nwx
-        from PyPol.fingerprints import _OwnDistributions
+        from PyPol.fingerprints import _OwnDistributions, RDF
         from PyPol.groups import _GG
 
         if not os.path.exists(self._path_output + "/analysis"):
@@ -3607,6 +3577,25 @@ COMMITTOR ...
                             input_traj=f"{crystal._path}{self._name}_analysis/{i}/{self._name}.xtc",
                             output_label=self._name,
                             plot=plot)
+                    elif type(cv) is RDF:
+                        old_box = copy.deepcopy(crystal._box)
+                        old_volume = copy.deepcopy(crystal._volume)
+                        old_density =  copy.deepcopy(crystal.density)
+
+                        crystal._box = np.loadtxt(f"{crystal._path}{self._name}_analysis/{i}/Box.txt")
+                        crystal._volume = np.linalg.det(crystal._box)
+                        crystal._density = crystal._calculate_density()
+
+                        crystal._cvs[cv._name + suffix] = cv.get_from_file(
+                            crystal=crystal,
+                            input_file=f"{crystal._path}{self._name}_analysis/{i}/plumed_{self._name}_{cv._name}.dat",
+                            output_label=self._name,
+                            plot=plot)
+
+                        crystal._box = old_box
+                        crystal._volume = old_volume
+                        crystal._density = old_density
+
                     else:
                         crystal._cvs[cv._name + suffix] = cv.get_from_file(
                             crystal=crystal,
