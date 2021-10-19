@@ -3422,6 +3422,9 @@ COMMITTOR ...
         if type(clustering_method) is not Clustering:
             print("Error: no suitable clustering method used")
 
+        if not self._mdp:
+            self._mdp = self._import_mdp(self._path_mdp)
+
         # TODO Include trr files. Check self._mdp for metadynamics
         # if "nstxout-compressed" in self._mdp.keys():
         #     file_ext = "xtc"
@@ -3439,7 +3442,7 @@ COMMITTOR ...
             j = 0
             # noinspection PyTypeChecker
             file_plumed = np.genfromtxt(crystal._path + f"plumed_{self._name}_COLVAR", names=True,
-                                        comments="#! FIELDS ")
+                                        comments="#! FIELDS ", invalid_raise=False)
             for i in range(file_plumed.shape[0]):
                 if file_plumed["rct_mol"][i] > self._intervals[j]:
                     times[self._intervals[j]] = (file_plumed["time"][i] - timeinterval, file_plumed["time"][i])
@@ -3483,11 +3486,10 @@ COMMITTOR ...
                         elif line.startswith("Box-ZY"):
                             new_box[1, 2] = float(line.split()[1])
                     file_coord.close()
-                    os.remove(crystal._path + 'PyPol_Temporary_Box.txt')
+                    os.remove(crystal._path + f'{self._name}_analysis/{str(i)}/PyPol_Temporary_Box.txt')
                     # noinspection PyTypeChecker
                     np.savetxt(crystal._path + f'{self._name}_analysis/{str(i)}/Box.txt', new_box)
                 else:
-
                     np.savetxt(crystal._path + f'{self._name}_analysis/{str(i)}/Box.txt', crystal._box)
 
                 for cv in clustering_method._cvp:
@@ -3580,7 +3582,7 @@ COMMITTOR ...
                     elif type(cv) is RDF:
                         old_box = copy.deepcopy(crystal._box)
                         old_volume = copy.deepcopy(crystal._volume)
-                        old_density =  copy.deepcopy(crystal.density)
+                        old_density = copy.deepcopy(crystal.density)
 
                         crystal._box = np.loadtxt(f"{crystal._path}{self._name}_analysis/{i}/Box.txt")
                         crystal._volume = np.linalg.det(crystal._box)
