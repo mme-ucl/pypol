@@ -3437,9 +3437,14 @@ COMMITTOR ...
         list_crystals = get_list_crystals(self._crystals, crystals, catt, _include_melted=False)
         for crystal in list_crystals:
             print(crystal._name)
+            old_box = copy.deepcopy(crystal._box)
+            old_volume = copy.deepcopy(crystal._volume)
+            old_density = copy.deepcopy(crystal.density)
+
             os.chdir(crystal._path)
             times = {k: [] for k in self._intervals}
             j = 0
+
             # noinspection PyTypeChecker
             file_plumed = np.genfromtxt(crystal._path + f"plumed_{self._name}_COLVAR", names=True,
                                         comments="#! FIELDS ", invalid_raise=False)
@@ -3486,11 +3491,17 @@ COMMITTOR ...
                         elif line.startswith("Box-ZY"):
                             new_box[1, 2] = float(line.split()[1])
                     file_coord.close()
+
+                    crystal._box = new_box
+                    crystal._volume = np.linalg.det(crystal._box)
+                    crystal._density = crystal._calculate_density()
+
                     os.remove(crystal._path + f'{self._name}_analysis/{str(i)}/PyPol_Temporary_Box.txt')
                     # noinspection PyTypeChecker
                     np.savetxt(crystal._path + f'{self._name}_analysis/{str(i)}/Box.txt', new_box)
                 else:
-                    np.savetxt(crystal._path + f'{self._name}_analysis/{str(i)}/Box.txt', crystal._box)
+                    # noinspection PyTypeChecker
+                    np.savetxt(crystal._path + f'{self._name}_analysis/{str(i)}/Box.txt', old_box)
 
                 for cv in clustering_method._cvp:
                     if issubclass(type(cv), _OwnDistributions) or issubclass(type(cv), _GG) or issubclass(type(cv),
@@ -3501,6 +3512,10 @@ COMMITTOR ...
                     cv.generate_input(crystal,
                                       input_name=wd + f"plumed_{cv._name}.dat",
                                       output_name=wd + f"plumed_{self._name}_{cv._name}.dat")
+
+            crystal._box = old_box
+            crystal._volume = old_volume
+            crystal._density = old_density
 
         file_script = open(self._path_data + "/run_plumed_analysis_" + self._name + ".sh", "w")
         file_script.write('#!/bin/bash\n\n'
