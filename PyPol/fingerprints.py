@@ -1337,7 +1337,7 @@ project.save()                                                # Save project
         d_max = 0.5 * np.min(np.array([crystal._box[0, 0], crystal._box[1, 1], crystal._box[2, 2]]))
         nbins = int(round((d_max - self._r_0) / self._grid_space, 0))
         r = np.linspace(self._r_0, d_max, nbins)
-        rho = crystal._density / 1000.0
+        rho = crystal.density / 1000.0
 
         cv = np.where(r > 0, dn_r / (4 * np.pi * rho * r ** 2 * self._grid_space) / crystal._Z * 2.0, 0.)
         # Save output and plot distribution

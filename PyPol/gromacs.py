@@ -3444,6 +3444,9 @@ COMMITTOR ...
             os.chdir(crystal._path)
             times = {k: [] for k in self._intervals}
             j = 0
+            if not os.path.exists(crystal._path + f"plumed_{self._name}_COLVAR"):
+                print("Sim not completed")
+                continue
 
             # noinspection PyTypeChecker
             file_plumed = np.genfromtxt(crystal._path + f"plumed_{self._name}_COLVAR", names=True,
@@ -3535,7 +3538,7 @@ COMMITTOR ...
         file_script.write("done\n")
         file_script.close()
 
-    def get_analysis_results(self, clustering_method=None, crystals="all", catt=None, plot=True):
+    def get_analysis_results(self, clustering_method=None, crystals="all", catt=None, plot=True, overwrite=True):
         import networkx as nwx
         from PyPol.fingerprints import _OwnDistributions, RDF
         from PyPol.groups import _GG
@@ -3586,6 +3589,8 @@ COMMITTOR ...
                 os.chdir(crystal._path)
                 for cv in clustering_method._cvp:
                     if issubclass(type(cv), _GG):
+                        continue
+                    if not overwrite and cv._name + suffix in crystal._cvs.keys():
                         continue
                     elif issubclass(type(cv), _OwnDistributions):
                         crystal._cvs[cv._name + suffix] = cv.gen_from_traj(
